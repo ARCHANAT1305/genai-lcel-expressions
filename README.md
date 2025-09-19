@@ -13,30 +13,51 @@ Load necessary libraries like openai, langchain.prompts, and langchain.chat_mode
 Create DocArrayInMemorySearch from a list of texts with OpenAIEmbeddings() and set up the retriever. Use ChatPromptTemplate to combine the retrieved context and user-provided question into a single prompt.Map functions to fetch relevant documents and the question, then invoke the chain to generate a response.
 ### PROGRAM:
 ```
-import os
-import openai
-
-from dotenv import load_dotenv, find_dotenv
-_ = load_dotenv(find_dotenv()) # read local .env file
-openai.api_key = os.environ['OPENAI_API_KEY']
-
 from langchain.prompts import ChatPromptTemplate
+from langchain.output_parsers import StructuredOutputParser, ResponseSchema
 from langchain.chat_models import ChatOpenAI
-from langchain.schema.output_parser import StrOutputParser
+
+response_schemas = [
+    ResponseSchema(name="advantages", description="List of key advantages of the programming language"),
+    ResponseSchema(name="disadvantages", description="List of key disadvantages or limitations of the programming language"),
+]
+output_parser = StructuredOutputParser.from_response_schemas(response_schemas)
+format_instructions = output_parser.get_format_instructions()
 
 prompt = ChatPromptTemplate.from_template(
-    "tell me a short short on {topic} in {number} part "
+    "Programming Language: {language}\nContext: {context}\n\n"
+    "Respond ONLY in JSON format as follows:\n"
+    "{format_instructions}"
 )
-model = ChatOpenAI()
-output_parser = StrOutputParser()
 
-chain = prompt | model | output_parser
+llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
 
-chain.invoke({"topic": "bahubali","number":"3"})
+def analyze_language(language, context):
+    formatted_prompt = prompt.format_messages(
+        language=language, context=context, format_instructions=format_instructions
+    )
+    raw_output = llm(formatted_prompt)
+    try:
+        parsed_output = output_parser.parse(raw_output.content)
+    except:
+        parsed_output = {"advantages": [], "disadvantages": ["Parsing failed"]}
+    return parsed_output
+
+language = "Python"
+context = (
+    "Python is a high-level, interpreted programming language known for its simplicity and readability. "
+    "It is widely used in web development, data science, AI/ML, automation, and scripting. "
+    "However, it has limitations in terms of execution speed, mobile development, and memory usage."
+)
+
+result = analyze_language(language, context)
+print(result)
+
 ```
 
 ### OUTPUT:
-<img width="1226" height="402" alt="image" src="https://github.com/user-attachments/assets/68bc695e-fd83-4a5d-a24d-5573cdc29499" />
+<img width="811" height="156" alt="image" src="https://github.com/user-attachments/assets/c3f8bec2-9cdb-415a-bb15-be3314d4dbd7" />
+
 
 
 ### RESULT:
